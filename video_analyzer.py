@@ -7,6 +7,7 @@ import google.generativeai as genai
 from django.conf import settings
 import yt_dlp
 import json
+from pathlib import Path
 from ai_error_handler import handle_error, get_error_message
 
 
@@ -66,11 +67,26 @@ class VideoAnalyzer:
         Returns:
             dict: Video information
         """
+        # Path to cookies file
+        cookies_path = Path(__file__).parent / 'cookies' / 'cookies.txt'
+        
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
         }
+        
+        # Try cookies file first, then fall back to browser cookies
+        if cookies_path.exists():
+            ydl_opts['cookiefile'] = str(cookies_path)
+            print(f"🍪 Using cookies from: {cookies_path}")
+        else:
+            # Try to use cookies from browser (Chrome/Edge on Windows, Chrome on Linux)
+            try:
+                ydl_opts['cookiesfrombrowser'] = ('chrome',)
+                print("🍪 Using cookies from Chrome browser")
+            except:
+                print("⚠️  No cookies available - may fail for restricted videos")
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
