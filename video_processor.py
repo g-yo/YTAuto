@@ -30,6 +30,9 @@ class VideoProcessor:
         Returns:
             tuple: (video_path, video_info) - Path to downloaded video and video metadata
         """
+        # Path to cookies file
+        cookies_path = Path(__file__).parent / 'cookies' / 'cookies.txt'
+        
         ydl_opts = {
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',  # Flexible format selection
             'outtmpl': str(self.download_dir / '%(id)s.%(ext)s'),
@@ -37,6 +40,15 @@ class VideoProcessor:
             'no_warnings': False,
             'merge_output_format': 'mp4',  # Ensure output is MP4
         }
+        
+        # Try cookies file first, then fall back to browser cookies
+        if cookies_path.exists():
+            ydl_opts['cookiefile'] = str(cookies_path)
+            print(f"🍪 Using cookies from: {cookies_path}")
+        else:
+            # Try to use cookies from browser (Chrome/Edge on Windows)
+            ydl_opts['cookiesfrombrowser'] = ('chrome',)
+            print("🍪 Using cookies from Chrome browser")
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
