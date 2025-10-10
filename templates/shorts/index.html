@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}Generate YouTube Short{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Hero Section -->
+        <div class="text-center text-white mb-5">
+            <h1 class="display-4 fw-bold mb-3">
+                <i class="bi bi-scissors"></i> Create YouTube Shorts
+            </h1>
+            <p class="lead">
+                Transform any YouTube video into engaging shorts with AI-powered titles and automatic uploads
+            </p>
+        </div>
+        
+        <!-- Main Form Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="bi bi-play-circle"></i> Generate Your Short
+                </h3>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" action="{% url 'shorts:generate_short' %}" id="generateForm">
+                    {% csrf_token %}
+                    
+                    <!-- YouTube URL -->
+                    <div class="mb-4">
+                        <label for="youtube_url" class="form-label fw-bold">
+                            <i class="bi bi-link-45deg"></i> YouTube Video URL
+                        </label>
+                        <input 
+                            type="url" 
+                            class="form-control form-control-lg" 
+                            id="youtube_url" 
+                            name="youtube_url" 
+                            placeholder="https://www.youtube.com/watch?v=..." 
+                            required
+                        >
+                        <div class="form-text">
+                            Paste the full URL of the YouTube video you want to crop
+                        </div>
+                    </div>
+                    
+                    <!-- AI Auto-Detection -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input 
+                                class="form-check-input" 
+                                type="checkbox" 
+                                id="auto_detect" 
+                                name="auto_detect"
+                                value="on"
+                                onchange="toggleTimeInputs(this)"
+                            >
+                            <label class="form-check-label fw-bold" for="auto_detect">
+                                <i class="bi bi-robot"></i> 🤖 AI Auto-Detect Best Segment
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Let AI analyze the video and automatically find the most engaging part
+                        </div>
+                    </div>
+                    
+                    <!-- Animation Mode -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input 
+                                class="form-check-input" 
+                                type="checkbox" 
+                                id="create_animation" 
+                                name="create_animation"
+                                value="on"
+                            >
+                            <label class="form-check-label fw-bold" for="create_animation">
+                                <i class="bi bi-palette"></i> 🎨 Create Audio-Reactive Animation
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Generate vibrant AI-styled animation synchronized to the audio (no original video)
+                        </div>
+                    </div>
+                    
+                    <!-- Time Inputs -->
+                    <div class="row mb-4" id="timeInputs">
+                        <div class="col-md-6">
+                            <label for="start_time" class="form-label fw-bold">
+                                <i class="bi bi-play-fill"></i> Start Time
+                            </label>
+                            <input 
+                                type="text" 
+                                class="form-control form-control-lg" 
+                                id="start_time" 
+                                name="start_time" 
+                                placeholder="0:00 or 1:30 (or leave blank for AI)"
+                            >
+                            <div class="form-text">
+                                Format: MM:SS or HH:MM:SS (optional with AI)
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end_time" class="form-label fw-bold">
+                                <i class="bi bi-stop-fill"></i> End Time
+                            </label>
+                            <input 
+                                type="text" 
+                                class="form-control form-control-lg" 
+                                id="end_time" 
+                                name="end_time" 
+                                placeholder="0:30 or 2:00 (or leave blank for AI)"
+                            >
+                            <div class="form-text">
+                                Format: MM:SS or HH:MM:SS (optional with AI)
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="bi bi-magic"></i> Generate Short
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Features Section -->
+        <div class="row mt-5 text-white">
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="bi bi-download"></i>
+                </div>
+                <h5 class="fw-bold">Download & Crop</h5>
+                <p>Automatically download and crop videos to your specifications</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="bi bi-robot"></i>
+                </div>
+                <h5 class="fw-bold">AI-Powered</h5>
+                <p>Generate catchy titles and hashtags using Google Gemini AI</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="bi bi-upload"></i>
+                </div>
+                <h5 class="fw-bold">Auto Upload</h5>
+                <p>Upload directly to your YouTube channel with one click</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle time inputs based on auto-detect checkbox
+    function toggleTimeInputs(checkbox) {
+        const timeInputs = document.getElementById('timeInputs');
+        const startTime = document.getElementById('start_time');
+        const endTime = document.getElementById('end_time');
+        
+        if (checkbox.checked) {
+            // AI mode - make times optional
+            timeInputs.style.opacity = '0.5';
+            startTime.removeAttribute('required');
+            endTime.removeAttribute('required');
+            startTime.placeholder = 'Leave blank for AI auto-detection';
+            endTime.placeholder = 'Leave blank for AI auto-detection';
+        } else {
+            // Manual mode - times required
+            timeInputs.style.opacity = '1';
+            startTime.setAttribute('required', 'required');
+            endTime.setAttribute('required', 'required');
+            startTime.placeholder = '0:00 or 1:30';
+            endTime.placeholder = '0:30 or 2:00';
+        }
+    }
+    
+    // Form validation and loading state
+    document.getElementById('generateForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        const autoDetect = document.getElementById('auto_detect').checked;
+        
+        if (autoDetect) {
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>🤖 AI Analyzing & Processing...';
+        } else {
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+        }
+        submitBtn.disabled = true;
+    });
+    
+    // Time format validation
+    function validateTimeFormat(input) {
+        const timePattern = /^(\d{1,2}:)?\d{1,2}:\d{2}$/;
+        return timePattern.test(input.value) || /^\d+$/.test(input.value);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Short Generated Successfully{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Success Message -->
+        <div class="text-center text-white mb-4">
+            <h1 class="display-5 fw-bold">
+                <i class="bi bi-check-circle-fill text-success"></i> Short Generated!
+            </h1>
+            <p class="lead">Your YouTube short has been created successfully</p>
+        </div>
+        
+        <div class="row">
+            <!-- Video Preview -->
+            <div class="col-lg-7 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-play-btn"></i> Preview
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="video-container">
+                            <video controls>
+                                <source src="{{ video_url }}" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Video Details -->
+            <div class="col-lg-5 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-info-circle"></i> Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="fw-bold text-muted mb-2">Original Title</h6>
+                        <p class="mb-3">{{ video_short.original_title }}</p>
+                        
+                        {% if video_short.generated_title %}
+                        <h6 class="fw-bold text-muted mb-2">
+                            <i class="bi bi-stars text-warning"></i> AI-Generated Title
+                        </h6>
+                        <p class="mb-3">{{ video_short.generated_title }}</p>
+                        {% endif %}
+                        
+                        {% if video_short.generated_hashtags %}
+                        <h6 class="fw-bold text-muted mb-2">
+                            <i class="bi bi-hash"></i> Hashtags
+                        </h6>
+                        <p class="mb-3">{{ video_short.generated_hashtags }}</p>
+                        {% endif %}
+                        
+                        <h6 class="fw-bold text-muted mb-2">Time Range</h6>
+                        <p class="mb-3">
+                            <span class="badge bg-primary">{{ video_short.start_time }}</span>
+                            <i class="bi bi-arrow-right mx-2"></i>
+                            <span class="badge bg-primary">{{ video_short.end_time }}</span>
+                        </p>
+                        
+                        <hr>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            {% if not video_short.uploaded_to_youtube %}
+                            <a href="{% url 'shorts:upload_to_youtube' video_short.id %}" class="btn btn-danger btn-lg">
+                                <i class="bi bi-youtube"></i> Upload to YouTube
+                            </a>
+                            {% else %}
+                            <div class="alert alert-success mb-2">
+                                <i class="bi bi-check-circle-fill"></i> Already uploaded!
+                                <br>
+                                <small>Video ID: {{ video_short.youtube_video_id }}</small>
+                            </div>
+                            <a href="https://youtube.com/shorts/{{ video_short.youtube_video_id }}" 
+                               target="_blank" 
+                               class="btn btn-danger btn-lg">
+                                <i class="bi bi-box-arrow-up-right"></i> View on YouTube
+                            </a>
+                            {% endif %}
+                            
+                            <a href="{{ video_url }}" download class="btn btn-success">
+                                <i class="bi bi-download"></i> Download Video
+                            </a>
+                            
+                            <a href="{% url 'shorts:index' %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Create Another Short
+                            </a>
+                            
+                            <a href="{% url 'shorts:history' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-clock-history"></i> View History
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
