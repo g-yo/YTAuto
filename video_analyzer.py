@@ -76,17 +76,12 @@ class VideoAnalyzer:
             'extract_flat': False,
         }
         
-        # Try cookies file first, then fall back to browser cookies
+        # Add cookies file if it exists
         if cookies_path.exists():
             ydl_opts['cookiefile'] = str(cookies_path)
             print(f"🍪 Using cookies from: {cookies_path}")
         else:
-            # Try to use cookies from browser (Chrome/Edge on Windows, Chrome on Linux)
-            try:
-                ydl_opts['cookiesfrombrowser'] = ('chrome',)
-                print("🍪 Using cookies from Chrome browser")
-            except:
-                print("⚠️  No cookies available - may fail for restricted videos")
+            print("⚠️  Cookies file not found - may fail for restricted videos")
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -154,8 +149,8 @@ class VideoAnalyzer:
                 max_heat = heat_value
                 peak_time = point.get('start_time', 0)
         
-        # Create 30-60 second segment around peak
-        segment_duration = min(60, duration)  # Max 60 seconds for Shorts
+        # Create 45 second segment around peak (optimized for Shorts)
+        segment_duration = min(45, duration)  # Max 45 seconds
         
         # Center the segment on the peak
         start_time = max(0, peak_time - segment_duration // 2)
@@ -208,8 +203,8 @@ class VideoAnalyzer:
         
         if best_chapter:
             start_time = best_chapter.get('start_time', 0)
-            # Limit to 60 seconds for Shorts
-            end_time = min(start_time + 60, duration)
+            # Limit to 45 seconds for Shorts
+            end_time = min(start_time + 45, duration)
             
             return {
                 'start_time': int(start_time),
@@ -241,9 +236,9 @@ class VideoAnalyzer:
                 'reason': 'Video is already short enough'
             }
         
-        # For longer videos, skip intro (first 10%) and take 30-60 seconds
+        # For longer videos, skip intro (first 10%) and take 45 seconds
         skip_intro = int(duration * 0.1)  # Skip first 10%
-        segment_duration = min(45, duration - skip_intro)  # 45 second default
+        segment_duration = min(45, duration - skip_intro)  # Always 45 seconds
         
         start_time = skip_intro
         end_time = start_time + segment_duration
