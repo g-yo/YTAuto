@@ -5,7 +5,7 @@ This module handles downloading YouTube videos and cropping them to create short
 
 import os
 import yt_dlp
-from moviepy.editor import VideoFileClip, vfx
+import subprocess
 from pathlib import Path
 from ai_error_handler import handle_error, get_error_message
 
@@ -95,7 +95,8 @@ class VideoProcessor:
     
     def crop_video(self, video_path, start_time, end_time, output_filename='short.mp4', make_shorts_format=True):
         """
-        Crop a video from start_time to end_time and convert to YouTube Shorts format.
+        Crop a video from start_time to end_time and convert to YouTube Shorts format using FFmpeg.
+        Fast single-pass processing with no temporary audio files.
         
         Args:
             video_path (str): Path to the video file
@@ -111,46 +112,82 @@ class VideoProcessor:
             # Parse times
             start_seconds = self.parse_time(start_time)
             end_seconds = self.parse_time(end_time)
-            
-            # Load video
-            video = VideoFileClip(video_path)
+            duration = end_seconds - start_seconds
             
             # Validate times
-            if start_seconds < 0 or end_seconds > video.duration:
-                raise ValueError(f"Invalid time range. Video duration is {video.duration} seconds")
+            if start_seconds < 0:
+                raise ValueError(f"Start time cannot be negative")
             
             if start_seconds >= end_seconds:
                 raise ValueError("Start time must be less than end time")
             
-            # Create subclip
-            clip = video.subclip(start_seconds, end_seconds)
-            
-            # Convert to YouTube Shorts format (9:16 vertical)
-            if make_shorts_format:
-                clip = self._convert_to_shorts_format(clip)
-            
             # Output path
             output_path = self.output_dir / output_filename
             
-            # Write the result with optimized settings for YouTube Shorts
-            clip.write_videofile(
-                str(output_path),
-                codec='libx264',
-                audio_codec='aac',
-                temp_audiofile='temp-audio.m4a',
-                remove_temp=True,
-                preset='medium',
-                fps=30  # YouTube Shorts optimal FPS
+            # Format timestamps for FFmpeg (HH:MM:SS)
+            start_ts = self._format_timestamp(start_seconds)
+            
+            print(f"⚡ Fast processing: Cutting {start_ts} → {duration}s and rotating in single pass...")
+            
+            # Build FFmpeg command for single-pass cut and rotate
+            if make_shorts_format:
+                # Rotate 90° and scale to 1080x1920 (9:16 vertical)
+                video_filter = "transpose=1,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black"
+            else:
+                video_filter = None
+            
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite output
+                '-ss', start_ts,  # Start time
+                '-i', str(video_path),  # Input file
+                '-t', str(duration),  # Duration
+            ]
+            
+            if video_filter:
+                ffmpeg_cmd.extend(['-vf', video_filter])
+            
+            ffmpeg_cmd.extend([
+                '-c:v', 'libx264',  # Video codec
+                '-preset', 'medium',  # Encoding speed
+                '-crf', '23',  # Quality (lower = better)
+                '-c:a', 'aac',  # Audio codec
+                '-b:a', '128k',  # Audio bitrate
+                '-r', '30',  # Frame rate
+                str(output_path)
+            ])
+            
+            # Run FFmpeg
+            result = subprocess.run(
+                ffmpeg_cmd,
+                capture_output=True,
+                text=True,
+                check=True
             )
             
-            # Close clips to free resources
-            clip.close()
-            video.close()
-            
+            print(f"✅ Video processed successfully: {output_path}")
             return str(output_path)
         
+        except subprocess.CalledProcessError as e:
+            error_msg = f"FFmpeg error: {e.stderr}"
+            raise Exception(f"Error cropping video: {error_msg}")
         except Exception as e:
             raise Exception(f"Error cropping video: {str(e)}")
+    
+    def _format_timestamp(self, seconds):
+        """
+        Convert seconds to FFmpeg timestamp format (HH:MM:SS).
+        
+        Args:
+            seconds (int): Time in seconds
+            
+        Returns:
+            str: Formatted timestamp
+        """
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
     
     def _convert_to_shorts_format(self, clip, rotation_mode='smart'):
         """

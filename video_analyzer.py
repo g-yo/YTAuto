@@ -149,8 +149,8 @@ class VideoAnalyzer:
                 max_heat = heat_value
                 peak_time = point.get('start_time', 0)
         
-        # Create 45 second segment around peak (optimized for Shorts)
-        segment_duration = min(45, duration)  # Max 45 seconds
+        # Create 30-60 second segment around peak
+        segment_duration = min(60, duration)  # Max 60 seconds for Shorts
         
         # Center the segment on the peak
         start_time = max(0, peak_time - segment_duration // 2)
@@ -203,8 +203,8 @@ class VideoAnalyzer:
         
         if best_chapter:
             start_time = best_chapter.get('start_time', 0)
-            # Limit to 45 seconds for Shorts
-            end_time = min(start_time + 45, duration)
+            # Limit to 60 seconds for Shorts
+            end_time = min(start_time + 60, duration)
             
             return {
                 'start_time': int(start_time),
@@ -236,9 +236,9 @@ class VideoAnalyzer:
                 'reason': 'Video is already short enough'
             }
         
-        # For longer videos, skip intro (first 10%) and take 45 seconds
+        # For longer videos, skip intro (first 10%) and take 30-60 seconds
         skip_intro = int(duration * 0.1)  # Skip first 10%
-        segment_duration = min(45, duration - skip_intro)  # Always 45 seconds
+        segment_duration = min(45, duration - skip_intro)  # 45 second default
         
         start_time = skip_intro
         end_time = start_time + segment_duration
