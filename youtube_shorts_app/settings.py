@@ -138,6 +138,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Session configuration for OAuth
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_COOKIE_SECURE = False  # Set to True only if using HTTPS everywhere
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'  # Important for OAuth redirects
+SESSION_SAVE_EVERY_REQUEST = True  # Ensure session is saved on every request
+
+# Security settings for ngrok/OAuth
+CSRF_COOKIE_SECURE = False  # Set to True only if using HTTPS everywhere
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # For ngrok HTTPS
 
 # YouTube API Configuration
 YOUTUBE_CLIENT_SECRETS_FILE = BASE_DIR / 'client_secret.json'

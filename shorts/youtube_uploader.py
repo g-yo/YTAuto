@@ -86,40 +86,69 @@ class YouTubeUploader:
         
         # Store state in session for verification
         request.session['oauth_state'] = state
+        request.session.modified = True  # Force session save
+        request.session.save()  # Explicitly save session
+        
+        print(f"🔐 OAuth Authorization:")
+        print(f"   Generated state: {state}")
+        print(f"   Session key: {request.session.session_key}")
+        print(f"   Redirect URI: {redirect_uri}")
         
         return authorization_url
     
     def handle_oauth_callback(self, request):
         """Handle OAuth 2.0 callback and exchange code for credentials."""
-        # Verify state
-        state = request.session.get('oauth_state')
-        if not state:
-            raise Exception("Invalid OAuth state")
+        # Get state from session and URL
+        stored_state = request.session.get('oauth_state')
+        received_state = request.GET.get('state')
+        
+        # Debug logging
+        print(f"🔍 OAuth Callback Debug:")
+        print(f"   Stored state in session: {stored_state}")
+        print(f"   Received state from URL: {received_state}")
+        print(f"   Session key: {request.session.session_key}")
+        
+        # Verify state - with better error message
+        if not stored_state:
+            raise Exception(
+                "OAuth state not found in session. "
+                "This usually means sessions aren't working properly. "
+                "Make sure SESSION_SAVE_EVERY_REQUEST=True in settings.py"
+            )
         
         # Build redirect URI
         redirect_uri = request.build_absolute_uri(reverse('shorts:oauth2callback'))
+        print(f"   Redirect URI: {redirect_uri}")
         
         # Ensure insecure transport is allowed for local development
         os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
         
-        # Create flow
-        flow = Flow.from_client_secrets_file(
-            str(self.client_secrets_file),
-            scopes=self.scopes,
-            redirect_uri=redirect_uri,
-            state=state
-        )
-        
-        # Exchange authorization code for credentials
-        authorization_response = request.build_absolute_uri()
-        flow.fetch_token(authorization_response=authorization_response)
-        
-        # Save credentials
-        credentials = flow.credentials
-        self.save_credentials_to_session(request, credentials)
-        
-        # Clean up state
-        del request.session['oauth_state']
+        # Create flow with state verification
+        try:
+            flow = Flow.from_client_secrets_file(
+                str(self.client_secrets_file),
+                scopes=self.scopes,
+                redirect_uri=redirect_uri,
+                state=stored_state
+            )
+            
+            # Exchange authorization code for credentials
+            authorization_response = request.build_absolute_uri()
+            flow.fetch_token(authorization_response=authorization_response)
+            
+            # Save credentials
+            credentials = flow.credentials
+            self.save_credentials_to_session(request, credentials)
+            
+            # Clean up state
+            if 'oauth_state' in request.session:
+                del request.session['oauth_state']
+            
+            print("✅ OAuth callback successful!")
+            
+        except Exception as e:
+            print(f"❌ OAuth error: {str(e)}")
+            raise
     
     def upload_video(self, request, video_path, title, description, category='22', privacy_status='public', is_shorts=True):
         """
