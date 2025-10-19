@@ -48,6 +48,11 @@ client_secret.json
 .env
 .env.local
 
+# Cookies (contains sensitive session data)
+cookies/cookies.txt
+cookies/*.txt
+!cookies/README.md
+
 # IDE
 .vscode/
 .idea/

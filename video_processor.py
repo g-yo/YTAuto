@@ -22,7 +22,7 @@ class VideoProcessor:
     
     def download_video(self, url):
         """
-        Download a YouTube video using yt-dlp.
+        Download a YouTube video using yt-dlp with enhanced bot detection bypass.
         
         Args:
             url (str): YouTube video URL
@@ -33,38 +33,111 @@ class VideoProcessor:
         # Path to cookies file
         cookies_path = Path(__file__).parent / 'cookies' / 'cookies.txt'
         
+        # Base yt-dlp options with bot bypass features
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',  # Flexible format selection
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': str(self.download_dir / '%(id)s.%(ext)s'),
             'quiet': False,
             'no_warnings': False,
-            'merge_output_format': 'mp4',  # Ensure output is MP4
+            'merge_output_format': 'mp4',
+            # Anti-bot detection measures
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web'],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            },
+            # Use a realistic user agent
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Sec-Fetch-Mode': 'navigate',
+            }
         }
         
-        # Try cookies file first, then fall back to browser cookies
+        # Try multiple cookie sources in order of preference
+        browsers_to_try = ['chrome', 'edge', 'firefox', 'brave', 'opera']
+        cookie_method_used = None
+        
+        # Check if running on a server (no DISPLAY environment variable)
+        is_headless = os.environ.get('DISPLAY') is None and os.name != 'nt'
+        
+        # First, try cookies.txt file if it exists
         if cookies_path.exists():
             ydl_opts['cookiefile'] = str(cookies_path)
-            print(f"🍪 Using cookies from: {cookies_path}")
+            cookie_method_used = f"cookies file: {cookies_path}"
+            print(f"🍪 Using cookies from file: {cookies_path}")
         else:
-            # Try to use cookies from browser (Chrome/Edge on Windows)
-            ydl_opts['cookiesfrombrowser'] = ('chrome',)
-            print("🍪 Using cookies from Chrome browser")
-        
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Extract video info
-                info = ydl.extract_info(url, download=True)
-                video_id = info['id']
-                video_path = self.download_dir / f"{video_id}.mp4"
+            # On headless servers (like EC2), skip browser cookie extraction
+            if is_headless:
+                print("⚠️  Running on headless server - browser cookies not available")
+                print(f"📁 Please upload cookies.txt to: {cookies_path}")
+                print("💡 Export cookies on your PC and upload to EC2 instance")
+            else:
+                # Try browsers in order (only on desktop environments)
+                for browser in browsers_to_try:
+                    try:
+                        ydl_opts['cookiesfrombrowser'] = (browser,)
+                        cookie_method_used = f"{browser} browser"
+                        print(f"🍪 Attempting to use cookies from {browser.title()} browser...")
+                        break
+                    except:
+                        continue
                 
-                return str(video_path), {
-                    'title': info.get('title', 'Unknown'),
-                    'duration': info.get('duration', 0),
-                    'uploader': info.get('uploader', 'Unknown'),
-                    'id': video_id
-                }
-        except Exception as e:
-            raise Exception(f"Error downloading video: {str(e)}")
+                if not cookie_method_used:
+                    print("⚠️  No cookies found. Attempting download without cookies...")
+                    print("💡 If download fails, export YouTube cookies to: cookies/cookies.txt")
+        
+        # Attempt download with retries
+        last_error = None
+        for attempt in range(len(browsers_to_try) if not cookies_path.exists() else 1):
+            try:
+                # Update browser if trying multiple
+                if not cookies_path.exists() and attempt > 0:
+                    if attempt < len(browsers_to_try):
+                        browser = browsers_to_try[attempt]
+                        ydl_opts['cookiesfrombrowser'] = (browser,)
+                        print(f"🔄 Retrying with {browser.title()} browser cookies...")
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    # Extract video info
+                    info = ydl.extract_info(url, download=True)
+                    video_id = info['id']
+                    video_path = self.download_dir / f"{video_id}.mp4"
+                    
+                    print(f"✅ Successfully downloaded using {cookie_method_used or 'no cookies'}")
+                    
+                    return str(video_path), {
+                        'title': info.get('title', 'Unknown'),
+                        'duration': info.get('duration', 0),
+                        'uploader': info.get('uploader', 'Unknown'),
+                        'id': video_id
+                    }
+            except Exception as e:
+                last_error = e
+                if 'Sign in to confirm' in str(e) or 'bot' in str(e).lower():
+                    if attempt < len(browsers_to_try) - 1 and not cookies_path.exists():
+                        continue  # Try next browser
+                    else:
+                        # All browsers failed, provide helpful error message
+                        raise Exception(
+                            f"Failed to fetch video information: {str(e)}\n\n"
+                            f"🔧 SOLUTION: Export your YouTube cookies:\n"
+                            f"   1. Install browser extension 'Get cookies.txt LOCALLY' or 'cookies.txt'\n"
+                            f"   2. Go to youtube.com and make sure you're logged in\n"
+                            f"   3. Click the extension and export cookies\n"
+                            f"   4. Save the file as: {cookies_path}\n"
+                            f"   5. Create the 'cookies' folder if it doesn't exist\n\n"
+                            f"   Alternative: Use yt-dlp with --cookies-from-browser option"
+                        )
+                else:
+                    raise Exception(f"Error downloading video: {str(e)}")
+        
+        # If we get here, all attempts failed
+        if last_error:
+            raise last_error
+        raise Exception("Failed to download video after all attempts")
     
     def parse_time(self, time_str):
         """

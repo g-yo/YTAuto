@@ -22,13 +22,30 @@ A powerful Django web application that automates the creation and uploading of Y
 
 ## 🚀 Quick Start
 
+### ⚠️ Important: YouTube Bot Detection Bypass
+
+YouTube may block downloads with "Sign in to confirm you're not a bot" error. **Solution:**
+
+1. **Export YouTube cookies** using browser extension ([Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc))
+2. **Save to** `cookies/cookies.txt`
+3. **Done!** The app will automatically use them
+
+📖 **See:** `COOKIE_SETUP_QUICK_GUIDE.md` for detailed instructions
+
+### 🖥️ Deploying to EC2?
+
+Running on AWS EC2 instance? Check out the complete deployment guide:
+
+📖 **See:** `EC2_DEPLOYMENT_GUIDE.md` for full EC2 setup instructions
+
 ### Prerequisites
 
 1. **Python 3.8+** installed on your system
-2. **FFmpeg** installed (required by MoviePy)
+2. **FFmpeg** installed (required for video processing)
    - Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH
    - Mac: `brew install ffmpeg`
    - Linux: `sudo apt-get install ffmpeg`
+3. **YouTube Cookies** (to bypass bot detection) - see above
 
 ### Installation
 
