@@ -4,8 +4,8 @@
 
 # Configuration - UPDATE THESE VALUES
 EC2_USER="ubuntu"                                    # EC2 username (ubuntu, ec2-user, etc.)
-EC2_HOST="your-ec2-ip-or-hostname"                  # EC2 public IP or hostname
-EC2_KEY="path/to/your-key.pem"                      # Path to your EC2 SSH key
+EC2_HOST="ec2-65-1-131-185"                  # EC2 public IP or hostname
+EC2_KEY="C:\Users\geoau\Downloads\ytauto.pem"                      # Path to your EC2 SSH key
 PROJECT_PATH="/home/ubuntu/YtAut"                   # Project path on EC2
 
 # Colors for output
@@ -13,6 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+# ssh -i "ytauto.pem" ubuntu@
 
 echo -e "${YELLOW}🚀 YouTube Cookies Upload to EC2${NC}\n"
 

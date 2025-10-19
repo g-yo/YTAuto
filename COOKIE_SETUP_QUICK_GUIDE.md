@@ -43,56 +43,19 @@ The app now has **enhanced bot bypass features**:
 4. ✅ **Better error messages** - tells you exactly what to do
 5. ✅ **Automatic retries** - tries different methods if one fails
 
-## 🖥️ Running on EC2 Instance?
-
-If you're deploying to AWS EC2 (headless server):
-
-### Quick EC2 Setup:
-
-1. **On Your PC:**
-   - Export cookies using browser extension (same as above)
-   - Save to `cookies/cookies.txt`
-
-2. **Upload to EC2:**
-   ```powershell
-   # Edit upload_cookies_to_ec2.ps1 with your EC2 details
-   .\upload_cookies_to_ec2.ps1
-   ```
-
-3. **On EC2:**
-   ```bash
-   # Verify cookies uploaded
-   ls -la /home/ubuntu/YtAut/cookies/cookies.txt
-   
-   # Restart your app
-   sudo systemctl restart ytaut
-   ```
-
-**📖 Full EC2 Guide:** See `EC2_DEPLOYMENT_GUIDE.md` for complete deployment instructions.
-
----
-
 ## Testing
 
 Just try downloading a video again - the app will:
 1. Check for `cookies/cookies.txt` file first
-2. If not found (and on desktop), try extracting from Chrome browser
+2. If not found, try extracting from Chrome browser
 3. If Chrome fails, try Edge, Firefox, Brave, Opera
 4. Use enhanced headers and Android client for better success
 5. Give you clear instructions if all methods fail
 
-**Note:** On EC2 (headless server), only `cookies.txt` file method works - browser extraction is skipped automatically.
-
----
-
 ## Need More Help?
 
-- **Local PC:** Check `cookies/README.md` for detailed instructions
-- **EC2 Deployment:** Check `EC2_DEPLOYMENT_GUIDE.md` for full setup
-- **Troubleshooting:** Both guides include troubleshooting sections
+Check `cookies/README.md` for detailed instructions and troubleshooting.
 
 ---
 
-**TL;DR**: 
-- **Local PC:** Install browser extension → Export cookies → Save to `cookies/cookies.txt` → Done! 🎉
-- **EC2:** Export on PC → Upload with script → Restart app → Done! 🚀
+**TL;DR**: Install browser extension → Export cookies from YouTube → Save to `cookies/cookies.txt` → Done! 🎉

@@ -26,8 +26,14 @@ SECRET_KEY = 'django-insecure-your-secret-key-here-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'domestically-pseudomilitaristic-candis.ngrok-free.dev', 'ec2-65-1-131-185.ap-south-1.compute.amazonaws.com', '*']
 
+# CSRF trusted origins for ngrok and EC2
+CSRF_TRUSTED_ORIGINS = [
+    'https://domestically-pseudomilitaristic-candis.ngrok-free.dev',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 # Application definition
 
