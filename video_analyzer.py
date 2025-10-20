@@ -72,25 +72,11 @@ class VideoAnalyzer:
         # Path to cookies file
         cookies_path = Path(__file__).parent / 'cookies' / 'cookies.txt'
         
-        # Enhanced yt-dlp options with bot bypass
+        # Simple yt-dlp options (same as YtAut45)
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
-            # Anti-bot detection measures
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'web'],
-                    'player_skip': ['webpage', 'configs'],
-                }
-            },
-            # Use realistic user agent
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
-                'Sec-Fetch-Mode': 'navigate',
-            }
         }
         
         # Add cookies file if it exists

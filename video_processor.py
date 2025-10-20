@@ -35,8 +35,8 @@ class VideoProcessor:
         
         # Base yt-dlp options with bot bypass features
         ydl_opts = {
-            # Download best quality video (HD)
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            # Download 1080p quality video (no upscaling needed)
+            'format': 'bestvideo[height<=1920][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1920]+bestaudio/best[height<=1920]/best',
             'outtmpl': str(self.download_dir / '%(id)s.%(ext)s'),
             'quiet': False,
             'no_warnings': False,
@@ -201,13 +201,10 @@ class VideoProcessor:
             # Format timestamps for FFmpeg (HH:MM:SS)
             start_ts = self._format_timestamp(start_seconds)
             
-            # TWO-STEP PROCESS for better reliability
-            # Step 1: Cut the video (fast, no re-encoding)
-            # Step 2: Rotate and scale (only if needed)
-            
+            # TWO-STEP PROCESS for better reliability and speed
             temp_cut_path = self.output_dir / f"temp_cut_{output_filename}"
             
-            print(f"⚡ Step 1/2: Cutting video {start_ts} → {duration}s (fast copy)...")
+            print(f"⚡ Step 1/2: Cutting {start_ts} → {duration}s (fast copy)...")
             
             # Step 1: Cut video without re-encoding (super fast)
             cut_cmd = [
@@ -220,7 +217,6 @@ class VideoProcessor:
                 str(temp_cut_path)
             ]
             
-            print(f"🎬 Running: {' '.join(cut_cmd)}")
             result = subprocess.run(
                 cut_cmd,
                 capture_output=True,
@@ -233,29 +229,30 @@ class VideoProcessor:
             
             # Step 2: Rotate and scale if needed
             if make_shorts_format:
-                print(f"⚡ Step 2/2: Rotating to vertical format...")
+                print(f"⚡ Step 2/2: Rotating to vertical (optimized for Azure)...")
                 
-                # High-quality rotation and scaling
+                # Optimized rotation for Azure (good quality, fast speed)
                 rotate_cmd = [
                     'ffmpeg',
                     '-y',
                     '-i', str(temp_cut_path),
-                    '-vf', 'transpose=1,scale=1080:1920:flags=lanczos',  # Lanczos for better quality
+                    '-vf', 'transpose=1,scale=1080:1920',  # Simple scaling
                     '-c:v', 'libx264',
-                    '-preset', 'medium',  # Better quality (medium preset)
-                    '-crf', '23',  # Higher quality (lower CRF = better quality)
+                    '-preset', 'fast',  # Fast preset
+                    '-crf', '23',  # Good quality
                     '-c:a', 'copy',  # Don't re-encode audio
-                    '-movflags', '+faststart',  # Optimize for streaming
+                    '-maxrate', '8M',  # Limit bitrate
+                    '-bufsize', '16M',
+                    '-movflags', '+faststart',
                     str(output_path)
                 ]
                 
-                print(f"🎬 Running: {' '.join(rotate_cmd)}")
                 result = subprocess.run(
                     rotate_cmd,
                     capture_output=True,
                     text=True,
                     check=True,
-                    timeout=180  # 3 minutes for rotation
+                    timeout=120  # 2 minutes timeout
                 )
                 
                 # Clean up temp file
@@ -274,9 +271,10 @@ class VideoProcessor:
         
         except subprocess.TimeoutExpired:
             raise Exception(
-                f"FFmpeg processing timed out after 5 minutes. "
-                f"The video might be too large or the server is overloaded. "
-                f"Try a shorter clip or check server resources."
+                f"FFmpeg processing timed out. "
+                f"The server might be overloaded or the video is too complex. "
+                f"Try: 1) A shorter clip (30 seconds or less), or "
+                f"2) Wait a moment and try again"
             )
         except subprocess.CalledProcessError as e:
             error_msg = f"FFmpeg error: {e.stderr}"
