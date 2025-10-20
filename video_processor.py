@@ -35,7 +35,8 @@ class VideoProcessor:
         
         # Base yt-dlp options with bot bypass features
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            # Download 1080p quality video (no upscaling needed)
+            'format': 'bestvideo[height<=1920][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1920]+bestaudio/best[height<=1920]/best',
             'outtmpl': str(self.download_dir / '%(id)s.%(ext)s'),
             'quiet': False,
             'no_warnings': False,
@@ -204,8 +205,9 @@ class VideoProcessor:
             
             # Build FFmpeg command for single-pass cut and rotate
             if make_shorts_format:
-                # Rotate 90° and scale to 1080x1920 (9:16 vertical)
-                video_filter = "transpose=1,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black"
+                # Rotate 90° and crop to 1080x1920 (9:16 vertical) from center
+                # This crops from 1080p source instead of upscaling
+                video_filter = "transpose=1,crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9),scale=1080:1920"
             else:
                 video_filter = None
             
