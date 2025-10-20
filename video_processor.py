@@ -205,9 +205,9 @@ class VideoProcessor:
             
             # Build FFmpeg command for single-pass cut and rotate
             if make_shorts_format:
-                # Rotate 90° and crop to 1080x1920 (9:16 vertical) from center
-                # This crops from 1080p source instead of upscaling
-                video_filter = "transpose=1,crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9),scale=1080:1920"
+                # Simplified filter for better compatibility
+                # Rotate 90° and scale to 1080x1920
+                video_filter = "transpose=1,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black"
             else:
                 video_filter = None
             
@@ -224,25 +224,36 @@ class VideoProcessor:
             
             ffmpeg_cmd.extend([
                 '-c:v', 'libx264',  # Video codec
-                '-preset', 'medium',  # Encoding speed
+                '-preset', 'fast',  # Faster encoding (was 'medium')
                 '-crf', '23',  # Quality (lower = better)
                 '-c:a', 'aac',  # Audio codec
                 '-b:a', '128k',  # Audio bitrate
                 '-r', '30',  # Frame rate
+                '-movflags', '+faststart',  # Optimize for streaming
                 str(output_path)
             ])
             
-            # Run FFmpeg
+            print(f"🎬 Running FFmpeg command...")
+            print(f"   Filter: {video_filter if video_filter else 'None'}")
+            
+            # Run FFmpeg with timeout (5 minutes max)
             result = subprocess.run(
                 ffmpeg_cmd,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                timeout=300  # 5 minute timeout
             )
             
             print(f"✅ Video processed successfully: {output_path}")
             return str(output_path)
         
+        except subprocess.TimeoutExpired:
+            raise Exception(
+                f"FFmpeg processing timed out after 5 minutes. "
+                f"The video might be too large or the server is overloaded. "
+                f"Try a shorter clip or check server resources."
+            )
         except subprocess.CalledProcessError as e:
             error_msg = f"FFmpeg error: {e.stderr}"
             raise Exception(f"Error cropping video: {error_msg}")
