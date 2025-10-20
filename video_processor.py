@@ -35,8 +35,8 @@ class VideoProcessor:
         
         # Base yt-dlp options with bot bypass features
         ydl_opts = {
-            # Download 1080p quality video (no upscaling needed)
-            'format': 'bestvideo[height<=1920][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1920]+bestaudio/best[height<=1920]/best',
+            # Download best quality video (HD)
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': str(self.download_dir / '%(id)s.%(ext)s'),
             'quiet': False,
             'no_warnings': False,
@@ -201,49 +201,73 @@ class VideoProcessor:
             # Format timestamps for FFmpeg (HH:MM:SS)
             start_ts = self._format_timestamp(start_seconds)
             
-            print(f"⚡ Fast processing: Cutting {start_ts} → {duration}s and rotating in single pass...")
+            # TWO-STEP PROCESS for better reliability
+            # Step 1: Cut the video (fast, no re-encoding)
+            # Step 2: Rotate and scale (only if needed)
             
-            # Build FFmpeg command for single-pass cut and rotate
-            if make_shorts_format:
-                # Simplified filter for better compatibility
-                # Rotate 90° and scale to 1080x1920
-                video_filter = "transpose=1,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black"
-            else:
-                video_filter = None
+            temp_cut_path = self.output_dir / f"temp_cut_{output_filename}"
             
-            ffmpeg_cmd = [
+            print(f"⚡ Step 1/2: Cutting video {start_ts} → {duration}s (fast copy)...")
+            
+            # Step 1: Cut video without re-encoding (super fast)
+            cut_cmd = [
                 'ffmpeg',
-                '-y',  # Overwrite output
-                '-ss', start_ts,  # Start time
-                '-i', str(video_path),  # Input file
-                '-t', str(duration),  # Duration
+                '-y',
+                '-ss', start_ts,
+                '-i', str(video_path),
+                '-t', str(duration),
+                '-c', 'copy',  # Copy streams without re-encoding (FAST!)
+                str(temp_cut_path)
             ]
             
-            if video_filter:
-                ffmpeg_cmd.extend(['-vf', video_filter])
-            
-            ffmpeg_cmd.extend([
-                '-c:v', 'libx264',  # Video codec
-                '-preset', 'fast',  # Faster encoding (was 'medium')
-                '-crf', '23',  # Quality (lower = better)
-                '-c:a', 'aac',  # Audio codec
-                '-b:a', '128k',  # Audio bitrate
-                '-r', '30',  # Frame rate
-                '-movflags', '+faststart',  # Optimize for streaming
-                str(output_path)
-            ])
-            
-            print(f"🎬 Running FFmpeg command...")
-            print(f"   Filter: {video_filter if video_filter else 'None'}")
-            
-            # Run FFmpeg with timeout (5 minutes max)
+            print(f"🎬 Running: {' '.join(cut_cmd)}")
             result = subprocess.run(
-                ffmpeg_cmd,
+                cut_cmd,
                 capture_output=True,
                 text=True,
                 check=True,
-                timeout=300  # 5 minute timeout
+                timeout=60  # Should be very fast
             )
+            
+            print(f"✅ Step 1 complete!")
+            
+            # Step 2: Rotate and scale if needed
+            if make_shorts_format:
+                print(f"⚡ Step 2/2: Rotating to vertical format...")
+                
+                # High-quality rotation and scaling
+                rotate_cmd = [
+                    'ffmpeg',
+                    '-y',
+                    '-i', str(temp_cut_path),
+                    '-vf', 'transpose=1,scale=1080:1920:flags=lanczos',  # Lanczos for better quality
+                    '-c:v', 'libx264',
+                    '-preset', 'medium',  # Better quality (medium preset)
+                    '-crf', '23',  # Higher quality (lower CRF = better quality)
+                    '-c:a', 'copy',  # Don't re-encode audio
+                    '-movflags', '+faststart',  # Optimize for streaming
+                    str(output_path)
+                ]
+                
+                print(f"🎬 Running: {' '.join(rotate_cmd)}")
+                result = subprocess.run(
+                    rotate_cmd,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=180  # 3 minutes for rotation
+                )
+                
+                # Clean up temp file
+                try:
+                    temp_cut_path.unlink()
+                except:
+                    pass
+                    
+                print(f"✅ Step 2 complete!")
+            else:
+                # No rotation needed, just rename temp file
+                temp_cut_path.rename(output_path)
             
             print(f"✅ Video processed successfully: {output_path}")
             return str(output_path)
