@@ -204,6 +204,18 @@ class VideoProcessor:
             # TWO-STEP PROCESS for better reliability and speed
             temp_cut_path = self.output_dir / f"temp_cut_{output_filename}"
             
+            # Check if FFmpeg is available
+            try:
+                ffmpeg_check = subprocess.run(
+                    ['ffmpeg', '-version'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                print(f"✅ FFmpeg version: {ffmpeg_check.stdout.split('n')[0][:50]}")
+            except Exception as e:
+                raise Exception(f"FFmpeg not found or not working: {str(e)}")
+            
             print(f"⚡ Step 1/2: Cutting {start_ts} → {duration}s (fast copy)...")
             
             # Step 1: Cut video without re-encoding (super fast)
@@ -247,13 +259,25 @@ class VideoProcessor:
                     str(output_path)
                 ]
                 
-                result = subprocess.run(
-                    rotate_cmd,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    timeout=120  # 2 minutes timeout
-                )
+                print(f"🔍 DEBUG: Running command: {' '.join(rotate_cmd)}")
+                print(f"🔍 DEBUG: Input file: {temp_cut_path} (exists: {temp_cut_path.exists()})")
+                print(f"🔍 DEBUG: Output file: {output_path}")
+                
+                try:
+                    result = subprocess.run(
+                        rotate_cmd,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        timeout=180  # 3 minutes timeout
+                    )
+                    print(f"🔍 DEBUG: FFmpeg stdout: {result.stdout[-500:]}")  # Last 500 chars
+                    print(f"🔍 DEBUG: FFmpeg stderr: {result.stderr[-500:]}")
+                except subprocess.TimeoutExpired as e:
+                    print(f"❌ DEBUG: FFmpeg TIMED OUT!")
+                    print(f"❌ DEBUG: Stdout so far: {e.stdout[-500:] if e.stdout else 'None'}")
+                    print(f"❌ DEBUG: Stderr so far: {e.stderr[-500:] if e.stderr else 'None'}")
+                    raise
                 
                 # Clean up temp file
                 try:
