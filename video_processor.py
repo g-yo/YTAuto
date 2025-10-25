@@ -219,8 +219,8 @@ class VideoProcessor:
                     # transpose=1 rotates 90° clockwise, scale with high quality algorithm
                     '-vf', 'transpose=1,scale=1080:1920:flags=lanczos',
                     '-c:v', 'libx264',
-                    '-preset', 'medium',  # Better quality than 'fast'
-                    '-crf', '18',  # Higher quality (lower CRF = better quality)
+                    '-preset', 'veryfast',  # Much faster encoding for slower servers
+                    '-crf', '23',  # Balanced quality (lower = better, but slower)
                     '-c:a', 'copy',  # Don't re-encode audio
                     '-maxrate', '12M',  # Higher bitrate for HD
                     '-bufsize', '24M',
@@ -238,7 +238,7 @@ class VideoProcessor:
                         capture_output=True,
                         text=True,
                         check=True,
-                        timeout=180  # 3 minutes timeout
+                        timeout=600  # 10 minutes timeout for slower servers
                     )
                     print(f"🔍 DEBUG: FFmpeg stdout: {result.stdout[-500:]}")  # Last 500 chars
                     print(f"🔍 DEBUG: FFmpeg stderr: {result.stderr[-500:]}")
