@@ -33,6 +33,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://domestically-pseudomilitaristic-candis.ngrok-free.dev',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
+    'https://gyopi.duckdns.org',
 ]
 
 # Application definition
