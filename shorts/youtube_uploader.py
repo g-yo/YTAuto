@@ -5,6 +5,8 @@ Handles OAuth 2.0 authentication and video uploads to YouTube.
 
 import os
 import pickle
+import json
+from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -26,16 +28,37 @@ class YouTubeUploader:
         self.scopes = settings.YOUTUBE_SCOPES
         self.api_service_name = settings.YOUTUBE_API_SERVICE_NAME
         self.api_version = settings.YOUTUBE_API_VERSION
+        # File path for storing credentials (for headless server deployment)
+        self.credentials_file = Path(settings.BASE_DIR) / 'youtube_credentials.json'
     
     def get_credentials_from_session(self, request):
-        """Retrieve credentials from session."""
+        """Retrieve credentials from file first (for server), then session (for local dev)."""
+        # Try loading from file first (for headless server deployment)
+        file_creds = self.load_credentials_from_file()
+        if file_creds:
+            # Refresh if expired
+            if file_creds.expired and file_creds.refresh_token:
+                try:
+                    file_creds.refresh(Request())
+                    self.save_credentials_to_file(file_creds)
+                    print("🔄 Refreshed credentials from file")
+                except Exception as e:
+                    print(f"⚠️  Failed to refresh file credentials: {e}")
+            
+            if file_creds.valid:
+                return file_creds
+        
+        # Fall back to session (for local development)
         if 'credentials' in request.session:
             return Credentials(**request.session['credentials'])
+        
         return None
     
     def save_credentials_to_session(self, request, credentials):
-        """Save credentials to session."""
-        request.session['credentials'] = {
+        """Save credentials to both session and file."""
+        print("🔄 Saving credentials...")
+        
+        creds_data = {
             'token': credentials.token,
             'refresh_token': credentials.refresh_token,
             'token_uri': credentials.token_uri,
@@ -43,6 +66,14 @@ class YouTubeUploader:
             'client_secret': credentials.client_secret,
             'scopes': credentials.scopes
         }
+        
+        # Save to session (for local development)
+        request.session['credentials'] = creds_data
+        print("   ✅ Saved to session")
+        
+        # Also save to file (for server deployment)
+        self.save_credentials_to_file(credentials)
+        print("💾 Credentials saved to both session and file")
     
     def has_credentials(self, request):
         """Check if valid credentials exist."""
@@ -284,6 +315,59 @@ class YouTubeUploader:
             hashtags.insert(0, 'Shorts')
         
         return hashtags
+    
+    def save_credentials_to_file(self, credentials, filepath=None):
+        """Save credentials to a JSON file for headless server deployment."""
+        if filepath is None:
+            filepath = self.credentials_file
+        
+        print(f"   📝 Attempting to save to: {filepath}")
+        print(f"   📂 File path type: {type(filepath)}")
+        print(f"   📂 Absolute path: {Path(filepath).absolute()}")
+        
+        creds_data = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+        
+        try:
+            # Ensure parent directory exists
+            Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(filepath, 'w') as f:
+                json.dump(creds_data, f, indent=2)
+            print(f"   ✅ Credentials saved to {filepath}")
+            
+            # Verify file was created
+            if Path(filepath).exists():
+                print(f"   ✅ File verified to exist")
+            else:
+                print(f"   ⚠️  File doesn't exist after write!")
+                
+        except Exception as e:
+            print(f"   ❌ Failed to save credentials to file: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def load_credentials_from_file(self, filepath=None):
+        """Load credentials from a JSON file."""
+        if filepath is None:
+            filepath = self.credentials_file
+        
+        if not os.path.exists(filepath):
+            return None
+        
+        try:
+            with open(filepath, 'r') as f:
+                creds_data = json.load(f)
+            return Credentials(**creds_data)
+        except Exception as e:
+            print(f"⚠️  Failed to load credentials from file: {e}")
+            return None
 
 
 # Standalone function for testing
