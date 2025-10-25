@@ -9,4 +9,5 @@ urlpatterns = [
     path('upload/<int:short_id>/', views.upload_to_youtube, name='upload_to_youtube'),
     path('oauth2callback/', views.oauth2callback, name='oauth2callback'),
     path('history/', views.history, name='history'),
+    path('debug-oauth/', views.debug_oauth_config, name='debug_oauth'),
 ]

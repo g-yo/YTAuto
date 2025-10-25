@@ -483,3 +483,62 @@ def history(request):
     """Display history of generated shorts."""
     shorts = VideoShort.objects.all()
     return render(request, 'shorts/history.html', {'shorts': shorts})
+
+
+def debug_oauth_config(request):
+    """Debug endpoint to check OAuth configuration."""
+    import json
+    from django.urls import reverse
+    
+    debug_info = {
+        'status': 'checking',
+        'issues': [],
+        'warnings': [],
+        'config': {}
+    }
+    
+    # Check client_secret.json
+    client_secret_path = settings.YOUTUBE_CLIENT_SECRETS_FILE
+    if not client_secret_path.exists():
+        debug_info['issues'].append('client_secret.json not found')
+        debug_info['status'] = 'error'
+    else:
+        try:
+            with open(client_secret_path, 'r') as f:
+                data = json.load(f)
+            
+            if 'web' in data:
+                config = data['web']
+                debug_info['config']['client_type'] = 'web'
+            elif 'installed' in data:
+                config = data['installed']
+                debug_info['config']['client_type'] = 'installed'
+                debug_info['warnings'].append('Using "installed" app credentials. Should use "Web application"')
+            else:
+                debug_info['issues'].append('Unknown client type')
+                config = {}
+            
+            # Check redirect URIs
+            redirect_uris = config.get('redirect_uris', [])
+            expected_uri = request.build_absolute_uri(reverse('shorts:oauth2callback'))
+            
+            debug_info['config']['expected_redirect_uri'] = expected_uri
+            debug_info['config']['configured_redirect_uris'] = redirect_uris
+            
+            if expected_uri not in redirect_uris:
+                debug_info['warnings'].append(
+                    f'Expected redirect URI not in client_secret.json: {expected_uri}'
+                )
+            
+            # Mask sensitive data
+            if 'client_id' in config:
+                debug_info['config']['client_id'] = config['client_id'][:50] + '...'
+            
+            if not debug_info['issues']:
+                debug_info['status'] = 'ok' if not debug_info['warnings'] else 'warning'
+                
+        except Exception as e:
+            debug_info['issues'].append(f'Error reading client_secret.json: {str(e)}')
+            debug_info['status'] = 'error'
+    
+    return JsonResponse(debug_info, json_dumps_params={'indent': 2})

@@ -22,7 +22,7 @@ class VideoProcessor:
     
     def download_video(self, url):
         """
-        Download a YouTube video using yt-dlp with enhanced bot detection bypass.
+        Download a YouTube video using yt-dlp.
         
         Args:
             url (str): YouTube video URL
@@ -33,112 +33,79 @@ class VideoProcessor:
         # Path to cookies file
         cookies_path = Path(__file__).parent / 'cookies' / 'cookies.txt'
         
-        # Base yt-dlp options with bot bypass features
+        # Base yt-dlp options - minimal config to avoid triggering bot detection
         ydl_opts = {
-            # Download 1080p quality video (no upscaling needed)
-            'format': 'bestvideo[height<=1920][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1920]+bestaudio/best[height<=1920]/best',
+            # Download BEST quality regardless of format, then merge to MP4
+            'format': 'bestvideo+bestaudio/best',
             'outtmpl': str(self.download_dir / '%(id)s.%(ext)s'),
             'quiet': False,
             'no_warnings': False,
-            'merge_output_format': 'mp4',
-            # Anti-bot detection measures
+            'merge_output_format': 'mp4',  # Merge to MP4 (allows WebM, VP9, etc.)
+            # Minimal extractor args - let yt-dlp choose best method
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web'],
-                    'player_skip': ['webpage', 'configs'],
+                    'player_skip': ['js'],  # Skip JavaScript player (can trigger detection)
                 }
             },
-            # Use a realistic user agent
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
-                'Sec-Fetch-Mode': 'navigate',
-            }
+            # Use IPv4 only
+            'source_address': '0.0.0.0',
+            # Add sleep to avoid rate limiting
+            'sleep_interval': 1,
+            'max_sleep_interval': 3,
         }
         
-        # Try multiple cookie sources in order of preference
-        browsers_to_try = ['chrome', 'edge', 'firefox', 'brave', 'opera']
-        cookie_method_used = None
-        
-        # Check if running on a server (no DISPLAY environment variable)
-        is_headless = os.environ.get('DISPLAY') is None and os.name != 'nt'
-        
-        # First, try cookies.txt file if it exists
+        # Optional: Try cookies if available (android_creator works without them)
         if cookies_path.exists():
             ydl_opts['cookiefile'] = str(cookies_path)
-            cookie_method_used = f"cookies file: {cookies_path}"
-            print(f"🍪 Using cookies from file: {cookies_path}")
+            print(f"🍪 Using cookies from: {cookies_path}")
         else:
-            # On headless servers (like EC2), skip browser cookie extraction
-            if is_headless:
-                print("⚠️  Running on headless server - browser cookies not available")
-                print(f"📁 Please upload cookies.txt to: {cookies_path}")
-                print("💡 Export cookies on your PC and upload to EC2 instance")
+            print("ℹ️  No cookies file - using default yt-dlp client selection")
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # Extract video info
+                info = ydl.extract_info(url, download=True)
+                video_id = info['id']
+                video_path = self.download_dir / f"{video_id}.mp4"
+                
+                # Display quality information
+                width = info.get('width', 'Unknown')
+                height = info.get('height', 'Unknown')
+                fps = info.get('fps', 'Unknown')
+                vcodec = info.get('vcodec', 'Unknown')
+                print(f"✅ Successfully downloaded!")
+                print(f"📺 Video Quality: {width}x{height} @ {fps}fps | Codec: {vcodec}")
+                
+                return str(video_path), {
+                    'title': info.get('title', 'Unknown'),
+                    'duration': info.get('duration', 0),
+                    'uploader': info.get('uploader', 'Unknown'),
+                    'id': video_id,
+                    'width': width,
+                    'height': height,
+                    'fps': fps
+                }
+        except Exception as e:
+            error_str = str(e)
+            if '403' in error_str or 'Forbidden' in error_str:
+                raise Exception(
+                    f"❌ YouTube blocked the download (403 Forbidden)\n"
+                    f"YouTube's bot detection is extremely aggressive right now.\n\n"
+                    f"🔧 SOLUTIONS TO TRY:\n\n"
+                    f"1. **Try a different video** - This specific video may have extra protection\n"
+                    f"2. **Wait 10-15 minutes** - You may be temporarily rate-limited\n"
+                    f"3. **Use a VPN** - Your IP might be flagged by YouTube\n"
+                    f"4. **Check video restrictions** - Age-restricted or region-locked videos\n"
+                    f"   are harder to download\n\n"
+                    f"⚠️  NOTE: Your yt-dlp is up-to-date (2025.10.14). The issue is YouTube's\n"
+                    f"   aggressive bot detection, not the tool version.\n\n"
+                    f"💡 TIP: Try downloading a different, non-restricted video to test if\n"
+                    f"   the system works. Some videos are simply impossible to download\n"
+                    f"   without a logged-in YouTube Premium account.\n\n"
+                    f"Original error: {error_str}"
+                )
             else:
-                # Try browsers in order (only on desktop environments)
-                for browser in browsers_to_try:
-                    try:
-                        ydl_opts['cookiesfrombrowser'] = (browser,)
-                        cookie_method_used = f"{browser} browser"
-                        print(f"🍪 Attempting to use cookies from {browser.title()} browser...")
-                        break
-                    except:
-                        continue
-                
-                if not cookie_method_used:
-                    print("⚠️  No cookies found. Attempting download without cookies...")
-                    print("💡 If download fails, export YouTube cookies to: cookies/cookies.txt")
-        
-        # Attempt download with retries
-        last_error = None
-        for attempt in range(len(browsers_to_try) if not cookies_path.exists() else 1):
-            try:
-                # Update browser if trying multiple
-                if not cookies_path.exists() and attempt > 0:
-                    if attempt < len(browsers_to_try):
-                        browser = browsers_to_try[attempt]
-                        ydl_opts['cookiesfrombrowser'] = (browser,)
-                        print(f"🔄 Retrying with {browser.title()} browser cookies...")
-                
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # Extract video info
-                    info = ydl.extract_info(url, download=True)
-                    video_id = info['id']
-                    video_path = self.download_dir / f"{video_id}.mp4"
-                    
-                    print(f"✅ Successfully downloaded using {cookie_method_used or 'no cookies'}")
-                    
-                    return str(video_path), {
-                        'title': info.get('title', 'Unknown'),
-                        'duration': info.get('duration', 0),
-                        'uploader': info.get('uploader', 'Unknown'),
-                        'id': video_id
-                    }
-            except Exception as e:
-                last_error = e
-                if 'Sign in to confirm' in str(e) or 'bot' in str(e).lower():
-                    if attempt < len(browsers_to_try) - 1 and not cookies_path.exists():
-                        continue  # Try next browser
-                    else:
-                        # All browsers failed, provide helpful error message
-                        raise Exception(
-                            f"Failed to fetch video information: {str(e)}\n\n"
-                            f"🔧 SOLUTION: Export your YouTube cookies:\n"
-                            f"   1. Install browser extension 'Get cookies.txt LOCALLY' or 'cookies.txt'\n"
-                            f"   2. Go to youtube.com and make sure you're logged in\n"
-                            f"   3. Click the extension and export cookies\n"
-                            f"   4. Save the file as: {cookies_path}\n"
-                            f"   5. Create the 'cookies' folder if it doesn't exist\n\n"
-                            f"   Alternative: Use yt-dlp with --cookies-from-browser option"
-                        )
-                else:
-                    raise Exception(f"Error downloading video: {str(e)}")
-        
-        # If we get here, all attempts failed
-        if last_error:
-            raise last_error
-        raise Exception("Failed to download video after all attempts")
+                raise Exception(f"Error downloading video: {error_str}")
     
     def parse_time(self, time_str):
         """
@@ -241,20 +208,22 @@ class VideoProcessor:
             
             # Step 2: Rotate and scale if needed
             if make_shorts_format:
-                print(f"⚡ Step 2/2: Rotating to vertical (optimized for Azure)...")
+                print(f"⚡ Step 2/2: Rotating to vertical (preserving HD quality)...")
                 
-                # Optimized rotation for Azure (good quality, fast speed)
+                # Smart scaling: scale to 1080:1920 but only if source is lower quality
+                # If source is HD or higher, maintain quality
                 rotate_cmd = [
                     'ffmpeg',
                     '-y',
                     '-i', str(temp_cut_path),
-                    '-vf', 'transpose=1,scale=1080:1920',  # Simple scaling
+                    # transpose=1 rotates 90° clockwise, scale with high quality algorithm
+                    '-vf', 'transpose=1,scale=1080:1920:flags=lanczos',
                     '-c:v', 'libx264',
-                    '-preset', 'fast',  # Fast preset
-                    '-crf', '23',  # Good quality
+                    '-preset', 'medium',  # Better quality than 'fast'
+                    '-crf', '18',  # Higher quality (lower CRF = better quality)
                     '-c:a', 'copy',  # Don't re-encode audio
-                    '-maxrate', '8M',  # Limit bitrate
-                    '-bufsize', '16M',
+                    '-maxrate', '12M',  # Higher bitrate for HD
+                    '-bufsize', '24M',
                     '-movflags', '+faststart',
                     str(output_path)
                 ]

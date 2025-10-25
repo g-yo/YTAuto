@@ -134,6 +134,8 @@ class YouTubeUploader:
             
             # Exchange authorization code for credentials
             authorization_response = request.build_absolute_uri()
+            print(f"   Authorization response URL: {authorization_response}")
+            
             flow.fetch_token(authorization_response=authorization_response)
             
             # Save credentials
@@ -147,7 +149,29 @@ class YouTubeUploader:
             print("✅ OAuth callback successful!")
             
         except Exception as e:
-            print(f"❌ OAuth error: {str(e)}")
+            error_msg = str(e)
+            print(f"❌ OAuth error: {error_msg}")
+            
+            # Provide specific guidance for common errors
+            if 'invalid_client' in error_msg.lower():
+                print("\n🔧 INVALID_CLIENT ERROR - Possible causes:")
+                print("   1. Redirect URI mismatch in Google Cloud Console")
+                print("   2. Wrong client_secret.json file")
+                print("   3. OAuth client deleted or disabled")
+                print("\n📝 Quick fix:")
+                print("   1. Go to: https://console.cloud.google.com/apis/credentials")
+                print("   2. Verify redirect URI is: http://127.0.0.1:8000/oauth2callback/")
+                print("   3. Download fresh client_secret.json if needed")
+                print("   4. See OAUTH_FIX_GUIDE.md for detailed instructions")
+                
+                raise Exception(
+                    "OAuth invalid_client error. "
+                    "This usually means your redirect URI in Google Cloud Console "
+                    "doesn't match http://127.0.0.1:8000/oauth2callback/ "
+                    "or your client_secret.json is incorrect. "
+                    "See OAUTH_FIX_GUIDE.md for detailed fix instructions."
+                )
+            
             raise
     
     def upload_video(self, request, video_path, title, description, category='22', privacy_status='public', is_shorts=True):
