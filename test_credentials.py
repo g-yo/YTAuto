@@ -1,6 +1,12 @@
 """
-Test script to verify OAuth credentials are working
-Run this on both local and server to verify setup
+⚠️  DEPRECATED: This script is no longer needed.
+
+The app now uses session-based OAuth flow instead of file-based credentials.
+No need to test credential files - OAuth works automatically when you upload.
+
+See OAUTH_SESSION_FLOW.md for details on the new authentication flow.
+
+Legacy test script (kept for reference only)
 """
 import os
 import sys

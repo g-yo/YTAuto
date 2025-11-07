@@ -1,6 +1,14 @@
 """
-Manual script to save OAuth credentials from session to file
-Run this AFTER successfully completing OAuth authorization
+⚠️  DEPRECATED: This script is no longer needed.
+
+The app now uses session-based OAuth flow exclusively.
+Credentials are NOT saved to files anymore - they stay in browser sessions.
+
+This prevents quota limitations by distributing API usage across user accounts.
+
+See OAUTH_SESSION_FLOW.md for details on the new authentication flow.
+
+Legacy script (kept for reference only)
 """
 import os
 import sys
